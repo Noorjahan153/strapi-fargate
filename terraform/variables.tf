@@ -1,16 +1,14 @@
+# variables.tf
+
+# AWS Account ID (12-digit number)
+variable "aws_account_id" {
+  description = "AWS Account ID for ECR repository"
+  type        = string
+}
+
+# AWS Region (optional, default to Hyderabad)
 variable "region" {
-  description = "AWS region to deploy resources"
+  description = "AWS region for deployment"
   type        = string
   default     = "ap-south-2"
-}
-
-variable "environment" {
-  description = "Deployment environment (dev, prod, test)"
-  type        = string
-  default     = "dev"
-}
-
-variable "ecr_repo" {
-  description = "ECR repository URI for the Strapi Docker image"
-  type        = string
 }
