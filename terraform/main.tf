@@ -3,7 +3,6 @@ provider "aws" {
 }
 
 ################ VPC ################
-
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -48,7 +47,6 @@ resource "aws_route_table_association" "a2" {
 }
 
 ################ SECURITY GROUP ################
-
 resource "aws_security_group" "strapi" {
   name   = "strapi-sg"
   vpc_id = aws_vpc.main.id
@@ -69,13 +67,11 @@ resource "aws_security_group" "strapi" {
 }
 
 ################ ECS CLUSTER ################
-
 resource "aws_ecs_cluster" "cluster" {
   name = "strapi-cluster"
 }
 
 ################ IAM EXECUTION ROLE ################
-
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecsTaskExecutionRole"
 
@@ -97,7 +93,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 }
 
 ################ TASK DEFINITION ################
-
 resource "aws_ecs_task_definition" "task" {
   family                   = "strapi-task"
   network_mode             = "awsvpc"
@@ -111,12 +106,21 @@ resource "aws_ecs_task_definition" "task" {
     name      = "strapi"
     image     = var.ecr_repo
     essential = true
-    portMappings = [{ containerPort = 1337 }]
+
+    portMappings = [
+      { containerPort = 1337 }
+    ]
+
+    environment = [
+      { name = "APP_KEYS",         value = "key1,key2,key3,key4" },
+      { name = "API_TOKEN_SALT",   value = "salt123" },
+      { name = "ADMIN_JWT_SECRET", value = "adminsecret123" },
+      { name = "JWT_SECRET",       value = "jwtsecret123" }
+    ]
   }])
 }
 
 ################ ECS SERVICE ################
-
 resource "aws_ecs_service" "service" {
   name            = "strapi-service"
   cluster         = aws_ecs_cluster.cluster.id
@@ -129,4 +133,10 @@ resource "aws_ecs_service" "service" {
     security_groups  = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
+}
+
+################ OUTPUT ################
+output "strapi_public_url" {
+  value       = "http://${aws_ecs_service.service.network_configuration[0].subnets[0]}:1337"
+  description = "Public URL to access Strapi"
 }
