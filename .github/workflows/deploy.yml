@@ -1,46 +1,27 @@
-name: Deploy Strapi to ECS
+- name: Login to ECR
+  run: |
+    aws ecr get-login-password --region ap-south-2 | \
+    docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-on:
-  push:
-    branches:
-      - main
+- name: Build and Push Image
+  run: |
+    docker build \
+      -t ${{ secrets.ECR_REGISTRY }}/strapi:${IMAGE_TAG} \
+      -f strapi/Dockerfile \
+      strapi
 
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
+    docker push ${{ secrets.ECR_REGISTRY }}/strapi:${IMAGE_TAG}
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+- name: Terraform Apply
+  run: |
+    cd terraform
+    terraform init
+    terraform apply -auto-approve \
+      -var="ecr_repo=${{ secrets.ECR_REGISTRY }}/strapi:${IMAGE_TAG}"
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-2
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build Docker image
-        run: |
-          docker build -t strapi ./strapi
-          docker tag strapi:latest ${{ steps.login-ecr.outputs.registry }}/strapi:latest
-
-      - name: Push Docker image to ECR
-        run: |
-          docker push ${{ steps.login-ecr.outputs.registry }}/strapi:latest
-
-      - name: Wait for ECS cluster to be ACTIVE
-        run: |
-          echo "Waiting for ECS cluster to become ACTIVE..."
-          aws ecs wait cluster-active --clusters strapi-cluster
-
-      - name: Deploy to ECS
-        run: |
-          aws ecs update-service \
-            --cluster strapi-cluster \
-            --service strapi-service \
-            --force-new-deployment
+- name: Force ECS Service Update
+  run: |
+    aws ecs update-service \
+      --cluster strapi-cluster \
+      --service strapi-service \
+      --force-new-deployment
