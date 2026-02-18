@@ -3,6 +3,7 @@ provider "aws" {
 }
 
 ################ VPC ################
+
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -16,15 +17,15 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_subnet" "subnet1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  map_public_ip_on_launch = true
   availability_zone       = "ap-south-2a"
+  map_public_ip_on_launch = true
 }
 
 resource "aws_subnet" "subnet2" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.2.0/24"
-  map_public_ip_on_launch = true
   availability_zone       = "ap-south-2b"
+  map_public_ip_on_launch = true
 }
 
 resource "aws_route_table" "rt" {
@@ -47,6 +48,7 @@ resource "aws_route_table_association" "a2" {
 }
 
 ################ SECURITY GROUP ################
+
 resource "aws_security_group" "strapi" {
   name   = "strapi-sg"
   vpc_id = aws_vpc.main.id
@@ -67,11 +69,13 @@ resource "aws_security_group" "strapi" {
 }
 
 ################ ECS CLUSTER ################
+
 resource "aws_ecs_cluster" "cluster" {
   name = "strapi-cluster"
 }
 
 ################ IAM EXECUTION ROLE ################
+
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecsTaskExecutionRole"
 
@@ -90,8 +94,11 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-################ ECS TASK DEFINITION ################
-variable "ecr_repo" {}
+################ TASK DEFINITION ################
+
+variable "ecr_repo" {
+  description = "Full ECR repository URI including image tag"
+}
 
 resource "aws_ecs_task_definition" "task" {
   family                   = "strapi-task"
@@ -99,43 +106,24 @@ resource "aws_ecs_task_definition" "task" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "512"
   memory                   = "1024"
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
 
-  execution_role_arn = aws_iam_role.ecs_execution_role.arn
+  container_definitions = jsonencode([
+    {
+      name      = "strapi"
+      image     = var.ecr_repo
+      essential = true
 
-  container_definitions = jsonencode([{
-    name      = "strapi"
-    image     = var.ecr_repo
-    essential = true
-    portMappings = [{ containerPort = 1337 }]
-  }])
+      portMappings = [
+        {
+          containerPort = 1337
+        }
+      ]
+    }
+  ])
 }
 
 ################ ECS SERVICE ################
-resource "aws_lb" "alb" {
-  name               = "strapi-alb"
-  load_balancer_type = "application"
-  security_groups    = [aws_security_group.strapi.id]
-  subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
-}
-
-resource "aws_lb_target_group" "tg" {
-  name     = "strapi-tg"
-  port     = 1337
-  protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
-  target_type = "ip"
-}
-
-resource "aws_lb_listener" "listener" {
-  load_balancer_arn = aws_lb.alb.arn
-  port              = 80
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.tg.arn
-  }
-}
 
 resource "aws_ecs_service" "service" {
   name            = "strapi-service"
@@ -149,17 +137,11 @@ resource "aws_ecs_service" "service" {
     security_groups = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.tg.arn
-    container_name   = "strapi"
-    container_port   = 1337
-  }
-
-  depends_on = [aws_lb_listener.listener]
 }
 
 ################ OUTPUT ################
+
 output "strapi_url" {
-  value = aws_lb.alb.dns_name
+  value = "http://${aws_ecs_service.service.network_configuration[0].subnets[0]}"
+  description = "Use this URL to access Strapi (public IP from subnet)"
 }
