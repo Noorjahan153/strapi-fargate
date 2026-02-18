@@ -1,4 +1,4 @@
-name: Deploy Strapi to ECS using ECR
+name: Build & Deploy Strapi to ECS
 
 on:
   push:
@@ -11,7 +11,7 @@ jobs:
 
     steps:
       # 1️⃣ Checkout the code
-      - name: Checkout code
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       # 2️⃣ Configure AWS credentials
@@ -22,22 +22,24 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-2
 
-      # 3️⃣ Login to ECR
+      # 3️⃣ Login to Amazon ECR
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      # 4️⃣ Build & Push Docker image (Dockerfile inside 'strapi' folder)
-      - name: Build and push Docker image
+      # 4️⃣ Build & Push Docker image (Dockerfile in strapi folder)
+      - name: Build and Push Docker Image to ECR
         run: |
           IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-2.amazonaws.com/strapi:latest"
-          echo "Building and pushing image: $IMAGE_URI"
-          docker build -t $IMAGE_URI ./strapi   # <-- folder containing Dockerfile
+          echo "Building Docker image from strapi/Dockerfile..."
+          docker build -t $IMAGE_URI ./strapi
+          echo "Pushing Docker image to ECR..."
           docker push $IMAGE_URI
 
-      # 5️⃣ Deploy ECS service
-      - name: Deploy ECS service
+      # 5️⃣ Deploy ECS service (forces new deployment)
+      - name: Deploy ECS Service
         run: |
+          echo "Updating ECS service to pull the new image..."
           aws ecs update-service \
-            --cluster strapi-cluster-dev \
-            --service strapi-service-dev \
+            --cluster strapi-cluster \
+            --service strapi-service \
             --force-new-deployment
