@@ -44,3 +44,4 @@ jobs:
         terraform init
         terraform apply -auto-approve \
           -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
+
