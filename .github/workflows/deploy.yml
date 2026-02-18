@@ -26,13 +26,12 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v1
 
-      # 4️⃣ Build & Push Docker image
+      # 4️⃣ Build & Push Docker image (Dockerfile inside 'strapi' folder)
       - name: Build and push Docker image
         run: |
-          # Full ECR image URI
           IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-2.amazonaws.com/strapi:latest"
           echo "Building and pushing image: $IMAGE_URI"
-          docker build -t $IMAGE_URI .
+          docker build -t $IMAGE_URI ./strapi   # <-- folder containing Dockerfile
           docker push $IMAGE_URI
 
       # 5️⃣ Deploy ECS service
