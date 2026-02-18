@@ -11,7 +11,6 @@ jobs:
     env:
       AWS_REGION: ap-south-2
       IMAGE_TAG: ${{ github.sha }}
-      ECR_REPOSITORY: 055013504553.dkr.ecr.ap-south-2.amazonaws.com/strapi
 
     steps:
     - uses: actions/checkout@v3
@@ -25,13 +24,13 @@ jobs:
 
     - name: Login to ECR
       run: |
-        aws ecr get-login-password --region $AWS_REGION | \
-        docker login --username AWS --password-stdin $ECR_REPOSITORY
+        aws ecr get-login-password --region ap-south-2 | \
+        docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
 
     - name: Build and Push Image
       run: |
-        docker build -t $ECR_REPOSITORY:$IMAGE_TAG -f strapi/Dockerfile strapi
-        docker push $ECR_REPOSITORY:$IMAGE_TAG
+        docker build -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} -f strapi/Dockerfile strapi
+        docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
@@ -40,5 +39,4 @@ jobs:
       run: |
         cd terraform
         terraform init
-        terraform apply -auto-approve \
-          -var="ecr_repo=$ECR_REPOSITORY:$IMAGE_TAG"
+        terraform apply -auto-approve -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
