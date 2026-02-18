@@ -1,7 +1,7 @@
 variable "region" {
   description = "AWS region to deploy resources"
   type        = string
-  default     = "ap-south-2"  # Hyderabad
+  default     = "ap-south-2"
 }
 
 variable "environment" {
@@ -11,6 +11,6 @@ variable "environment" {
 }
 
 variable "ecr_repo" {
-  description = "ECR repository URI for the Strapi image"
+  description = "ECR repository URI for the Strapi Docker image"
   type        = string
 }
