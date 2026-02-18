@@ -82,3 +82,26 @@ resource "aws_ecs_task_definition" "task" {
       essential = true
 
       portMappings = [
+        {
+          containerPort = 1337
+        }
+      ]
+    }
+  ])
+}
+
+################ ECS SERVICE ################
+
+resource "aws_ecs_service" "service" {
+  name            = "strapi-service"
+  cluster         = aws_ecs_cluster.cluster.id
+  task_definition = aws_ecs_task_definition.task.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets         = data.aws_subnets.all.ids
+    security_groups = [aws_security_group.strapi.id]
+    assign_public_ip = true
+  }
+}
