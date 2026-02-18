@@ -61,11 +61,19 @@ resource "aws_iam_role" "ecs_execution_role" {
       Action = "sts:AssumeRole"
     }]
   })
+
+  lifecycle {
+    prevent_destroy = true  # avoids conflicts if role already exists
+  }
 }
 
 resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   role       = aws_iam_role.ecs_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+
+  lifecycle {
+    prevent_destroy = true  # avoids conflicts
+  }
 }
 
 ################ CLOUDWATCH LOGS ################
@@ -73,6 +81,10 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 resource "aws_cloudwatch_log_group" "strapi" {
   name              = "/ecs/strapi-${var.environment}"
   retention_in_days = 7
+
+  lifecycle {
+    prevent_destroy = true  # avoids errors if log group exists
+  }
 }
 
 ################ ECS TASK DEFINITION ################
@@ -122,7 +134,7 @@ resource "aws_ecs_service" "service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = data.aws_subnets.existing.ids  # Use all subnets in existing VPC
+    subnets         = data.aws_subnets.existing.ids  # all existing VPC subnets
     security_groups = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
