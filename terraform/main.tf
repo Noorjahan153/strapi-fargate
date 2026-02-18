@@ -5,8 +5,8 @@ provider "aws" {
 ################ VPC ################
 
 resource "aws_vpc" "main" {
-  cidr_block = "10.0.0.0/16"
-  enable_dns_support = true
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_support   = true
   enable_dns_hostnames = true
 }
 
@@ -81,13 +81,13 @@ resource "aws_iam_role" "ecs_execution_role" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
+    Statement = [ {
       Effect = "Allow"
       Principal = {
         Service = "ecs-tasks.amazonaws.com"
       }
       Action = "sts:AssumeRole"
-    }]
+    } ]
   })
 }
 
@@ -96,7 +96,14 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-################ TASK DEFINITION ################
+################ CLOUDWATCH LOGS ################
+
+resource "aws_cloudwatch_log_group" "strapi" {
+  name              = "/ecs/strapi"
+  retention_in_days = 7
+}
+
+################ ECS TASK DEFINITION ################
 
 resource "aws_ecs_task_definition" "task" {
   family                   = "strapi-task"
@@ -118,6 +125,21 @@ resource "aws_ecs_task_definition" "task" {
           containerPort = 1337
         }
       ]
+
+      environment = [
+        { name = "HOST", value = "0.0.0.0" },
+        { name = "PORT", value = "1337" },
+        { name = "NODE_ENV", value = "production" }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          awslogs-group         = "/ecs/strapi"
+          awslogs-region        = var.region
+          awslogs-stream-prefix = "ecs"
+        }
+      }
     }
   ])
 }
@@ -132,12 +154,10 @@ resource "aws_ecs_service" "service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets = [
-      aws_subnet.subnet1.id,
-      aws_subnet.subnet2.id
-    ]
-
+    subnets         = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
     security_groups = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
+
+  depends_on = [aws_iam_role_policy_attachment.ecs_execution_policy]
 }
