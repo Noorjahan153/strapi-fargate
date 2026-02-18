@@ -38,6 +38,10 @@ resource "aws_security_group" "strapi" {
   tags = {
     Name = "strapi-sg-${var.environment}"
   }
+
+  lifecycle {
+    prevent_destroy = true   # Ignore if SG already exists
+  }
 }
 
 ################ ECS CLUSTER ################
@@ -63,7 +67,7 @@ resource "aws_iam_role" "ecs_execution_role" {
   })
 
   lifecycle {
-    prevent_destroy = true  # avoids conflicts if role already exists
+    prevent_destroy = true   # Ignore if role exists
   }
 }
 
@@ -72,7 +76,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 
   lifecycle {
-    prevent_destroy = true  # avoids conflicts
+    prevent_destroy = true   # Ignore if attached
   }
 }
 
@@ -83,7 +87,7 @@ resource "aws_cloudwatch_log_group" "strapi" {
   retention_in_days = 7
 
   lifecycle {
-    prevent_destroy = true  # avoids errors if log group exists
+    prevent_destroy = true   # Ignore if log group exists
   }
 }
 
@@ -134,7 +138,7 @@ resource "aws_ecs_service" "service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = data.aws_subnets.existing.ids  # all existing VPC subnets
+    subnets         = data.aws_subnets.existing.ids   # Use all subnets
     security_groups = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
