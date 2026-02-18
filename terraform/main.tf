@@ -1,19 +1,3 @@
-################ VARIABLES ################
-
-variable "region" {
-  default = "ap-south-1"
-}
-
-variable "environment" {
-  default = "dev"  # change to prod/test as needed
-}
-
-variable "ecr_repo" {
-  description = "ECR repository URI for the Strapi image"
-}
-
-################ PROVIDER ################
-
 provider "aws" {
   region = var.region
 }
@@ -193,3 +177,4 @@ resource "aws_ecs_service" "service" {
 
   depends_on = [aws_iam_role_policy_attachment.ecs_execution_policy]
 }
+
