@@ -2,7 +2,7 @@ provider "aws" {
   region = "ap-south-2"
 }
 
-# ---------------- VPC ----------------
+# VPC
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -33,12 +33,10 @@ resource "aws_subnet" "subnet2" {
 
 resource "aws_route_table" "rt" {
   vpc_id = aws_vpc.main.id
-
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
   }
-
   tags = { Name = "strapi-rt" }
 }
 
@@ -52,7 +50,7 @@ resource "aws_route_table_association" "a2" {
   route_table_id = aws_route_table.rt.id
 }
 
-# ---------------- Security Group ----------------
+# Security Group
 resource "aws_security_group" "strapi_sg" {
   name   = "strapi-sg"
   vpc_id = aws_vpc.main.id
@@ -70,14 +68,12 @@ resource "aws_security_group" "strapi_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
   tags = { Name = "strapi-sg" }
 }
 
-# ---------------- IAM Role ----------------
+# IAM Role for ECS
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecsTaskExecutionRole"
-
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -93,23 +89,23 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-# ---------------- CloudWatch Logs ----------------
+# CloudWatch Logs
 resource "aws_cloudwatch_log_group" "strapi" {
   name              = "/ecs/strapi"
   retention_in_days = 7
 }
 
-# ---------------- ECR Repository ----------------
+# ECR Repository
 resource "aws_ecr_repository" "strapi" {
   name = "strapi"
 }
 
-# ---------------- ECS Cluster ----------------
+# ECS Cluster
 resource "aws_ecs_cluster" "cluster" {
   name = "strapi-cluster"
 }
 
-# ---------------- ECS Task Definition ----------------
+# ECS Task Definition
 resource "aws_ecs_task_definition" "strapi_task" {
   family                   = "strapi-task"
   network_mode             = "awsvpc"
@@ -142,7 +138,7 @@ resource "aws_ecs_task_definition" "strapi_task" {
   }])
 }
 
-# ---------------- ECS Service ----------------
+# ECS Service
 resource "aws_ecs_service" "strapi_service" {
   name            = "strapi-service"
   cluster         = aws_ecs_cluster.cluster.id
