@@ -25,15 +25,12 @@ jobs:
     - name: Login to ECR
       run: |
         aws ecr get-login-password --region ap-south-2 | \
-        docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
+        docker login --username AWS --password-stdin 055013504553.dkr.ecr.ap-south-2.amazonaws.com
 
     - name: Build and Push Image
       run: |
-        docker build \
-          -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} \
-          -f strapi/Dockerfile \
-          strapi
-        docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
+        docker build -t 055013504553.dkr.ecr.ap-south-2.amazonaws.com/strapi:latest -f strapi/Dockerfile strapi
+        docker push 055013504553.dkr.ecr.ap-south-2.amazonaws.com/strapi:latest
 
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
@@ -42,10 +39,4 @@ jobs:
       run: |
         cd terraform
         terraform init
-        terraform apply -auto-approve \
-        -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
-
-    - name: Show Strapi URL
-      run: |
-        echo "Strapi is available at:"
-        terraform -chdir=terraform output alb_dns
+        terraform apply -auto-approve
