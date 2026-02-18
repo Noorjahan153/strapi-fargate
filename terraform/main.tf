@@ -5,10 +5,8 @@ provider "aws" {
 ################ EXISTING VPC ################
 
 data "aws_vpc" "existing" {
-  default = true  # Uses the default VPC in ap-south-2
+  default = true
 }
-
-################ SUBNETS ################
 
 data "aws_subnets" "existing" {
   filter {
@@ -16,6 +14,8 @@ data "aws_subnets" "existing" {
     values = [data.aws_vpc.existing.id]
   }
 }
+
+################ SECURITY GROUP ################
 
 resource "aws_security_group" "strapi" {
   name   = "strapi-sg-${var.environment}"
@@ -122,8 +122,7 @@ resource "aws_ecs_service" "service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    # Use the first 2 subnets from the existing VPC
-    subnets         = slice(data.aws_subnets.existing.ids, 0, 2)
+    subnets         = data.aws_subnets.existing.ids  # Use all subnets in existing VPC
     security_groups = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
