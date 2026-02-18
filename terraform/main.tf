@@ -1,3 +1,19 @@
+################ VARIABLES ################
+
+variable "region" {
+  default = "ap-south-1"
+}
+
+variable "environment" {
+  default = "dev"  # change to prod/test as needed
+}
+
+variable "ecr_repo" {
+  description = "ECR repository URI for the Strapi image"
+}
+
+################ PROVIDER ################
+
 provider "aws" {
   region = var.region
 }
@@ -8,10 +24,16 @@ resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
+  tags = {
+    Name = "strapi-vpc-${var.environment}"
+  }
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
+  tags = {
+    Name = "strapi-igw-${var.environment}"
+  }
 }
 
 resource "aws_subnet" "subnet1" {
@@ -19,6 +41,9 @@ resource "aws_subnet" "subnet1" {
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "ap-south-2a"
   map_public_ip_on_launch = true
+  tags = {
+    Name = "strapi-subnet1-${var.environment}"
+  }
 }
 
 resource "aws_subnet" "subnet2" {
@@ -26,6 +51,9 @@ resource "aws_subnet" "subnet2" {
   cidr_block              = "10.0.2.0/24"
   availability_zone       = "ap-south-2b"
   map_public_ip_on_launch = true
+  tags = {
+    Name = "strapi-subnet2-${var.environment}"
+  }
 }
 
 resource "aws_route_table" "rt" {
@@ -34,6 +62,10 @@ resource "aws_route_table" "rt" {
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
+  }
+
+  tags = {
+    Name = "strapi-rt-${var.environment}"
   }
 }
 
@@ -50,7 +82,7 @@ resource "aws_route_table_association" "a2" {
 ################ SECURITY GROUP ################
 
 resource "aws_security_group" "strapi" {
-  name   = "strapi-sg"
+  name   = "strapi-sg-${var.environment}"
   vpc_id = aws_vpc.main.id
 
   ingress {
@@ -66,18 +98,22 @@ resource "aws_security_group" "strapi" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Name = "strapi-sg-${var.environment}"
+  }
 }
 
 ################ ECS CLUSTER ################
 
 resource "aws_ecs_cluster" "cluster" {
-  name = "strapi-cluster"
+  name = "strapi-cluster-${var.environment}"
 }
 
 ################ IAM EXECUTION ROLE ################
 
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "ecsTaskExecutionRole"
+  name = "ecsTaskExecutionRole-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -99,14 +135,14 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 ################ CLOUDWATCH LOGS ################
 
 resource "aws_cloudwatch_log_group" "strapi" {
-  name              = "/ecs/strapi"
+  name              = "/ecs/strapi-${var.environment}"
   retention_in_days = 7
 }
 
 ################ ECS TASK DEFINITION ################
 
 resource "aws_ecs_task_definition" "task" {
-  family                   = "strapi-task"
+  family                   = "strapi-task-${var.environment}"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
   cpu                      = "512"
@@ -114,40 +150,36 @@ resource "aws_ecs_task_definition" "task" {
 
   execution_role_arn = aws_iam_role.ecs_execution_role.arn
 
-  container_definitions = jsonencode([
-    {
-      name      = "strapi"
-      image     = var.ecr_repo
-      essential = true
+  container_definitions = jsonencode([{
+    name      = "strapi"
+    image     = var.ecr_repo
+    essential = true
 
-      portMappings = [
-        {
-          containerPort = 1337
-        }
-      ]
+    portMappings = [{
+      containerPort = 1337
+    }]
 
-      environment = [
-        { name = "HOST", value = "0.0.0.0" },
-        { name = "PORT", value = "1337" },
-        { name = "NODE_ENV", value = "production" }
-      ]
+    environment = [
+      { name = "HOST", value = "0.0.0.0" },
+      { name = "PORT", value = "1337" },
+      { name = "NODE_ENV", value = "production" }
+    ]
 
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = "/ecs/strapi"
-          awslogs-region        = var.region
-          awslogs-stream-prefix = "ecs"
-        }
+    logConfiguration = {
+      logDriver = "awslogs"
+      options = {
+        awslogs-group         = "/ecs/strapi-${var.environment}"
+        awslogs-region        = var.region
+        awslogs-stream-prefix = "ecs"
       }
     }
-  ])
+  }])
 }
 
 ################ ECS SERVICE ################
 
 resource "aws_ecs_service" "service" {
-  name            = "strapi-service"
+  name            = "strapi-service-${var.environment}"
   cluster         = aws_ecs_cluster.cluster.id
   task_definition = aws_ecs_task_definition.task.arn
   desired_count   = 1
