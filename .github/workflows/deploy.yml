@@ -13,35 +13,31 @@ jobs:
       IMAGE_TAG: ${{ github.sha }}
 
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-    - name: Configure AWS
-      uses: aws-actions/configure-aws-credentials@v2
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ap-south-2
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-south-2
 
-    - name: Login to ECR
-      run: |
-        aws ecr get-login-password --region ap-south-2 | \
-        docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
 
-    - name: Build and Push Image
-      run: |
-        docker build \
-          -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} \
-          -f strapi/Dockerfile \
-          strapi
+      - name: Terraform Apply
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve \
+          -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
 
-        docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
+      - name: Login to ECR
+        run: |
+          aws ecr get-login-password --region ap-south-2 | \
+          docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
 
-    - name: Setup Terraform
-      uses: hashicorp/setup-terraform@v2
-
-    - name: Terraform Apply
-      run: |
-        cd terraform
-        terraform init
-        terraform apply -auto-approve \
-        -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} strapi/
+          docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
