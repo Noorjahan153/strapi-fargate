@@ -22,25 +22,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-2
 
-      # 3️⃣ Log in to ECR
+      # 3️⃣ Login to ECR
       - name: Login to Amazon ECR
-        id: login-ecr
         uses: aws-actions/amazon-ecr-login@v1
 
-      # 4️⃣ Build Docker image
-      - name: Build Docker image
+      # 4️⃣ Build & Push Docker image
+      - name: Build and push Docker image
         run: |
-          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-2.amazonaws.com/strapinew:latest"
+          # Full ECR image URI
+          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-2.amazonaws.com/strapi:latest"
+          echo "Building and pushing image: $IMAGE_URI"
           docker build -t $IMAGE_URI .
-          docker tag $IMAGE_URI $IMAGE_URI
-
-      # 5️⃣ Push Docker image to ECR
-      - name: Push Docker image
-        run: |
-          IMAGE_URI="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.ap-south-2.amazonaws.com/strapinew:latest"
           docker push $IMAGE_URI
 
-      # 6️⃣ Deploy ECS service
+      # 5️⃣ Deploy ECS service
       - name: Deploy ECS service
         run: |
           aws ecs update-service \
