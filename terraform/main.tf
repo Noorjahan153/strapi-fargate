@@ -3,6 +3,7 @@ provider "aws" {
 }
 
 ################ VPC ################
+
 resource "aws_vpc" "main" {
   cidr_block           = "10.0.0.0/16"
   enable_dns_support   = true
@@ -16,17 +17,20 @@ resource "aws_internet_gateway" "igw" {
 resource "aws_subnet" "subnet1" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
+  availability_zone       = "ap-south-2a"
   map_public_ip_on_launch = true
 }
 
 resource "aws_subnet" "subnet2" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.2.0/24"
+  availability_zone       = "ap-south-2b"
   map_public_ip_on_launch = true
 }
 
 resource "aws_route_table" "rt" {
   vpc_id = aws_vpc.main.id
+
   route {
     cidr_block = "0.0.0.0/0"
     gateway_id = aws_internet_gateway.igw.id
@@ -44,6 +48,7 @@ resource "aws_route_table_association" "a2" {
 }
 
 ################ SECURITY GROUP ################
+
 resource "aws_security_group" "strapi" {
   name   = "strapi-sg"
   vpc_id = aws_vpc.main.id
@@ -64,11 +69,13 @@ resource "aws_security_group" "strapi" {
 }
 
 ################ ECS CLUSTER ################
+
 resource "aws_ecs_cluster" "cluster" {
   name = "strapi-cluster"
 }
 
 ################ IAM EXECUTION ROLE ################
+
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecsTaskExecutionRole"
 
@@ -76,7 +83,9 @@ resource "aws_iam_role" "ecs_execution_role" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Principal = { Service = "ecs-tasks.amazonaws.com" }
+      Principal = {
+        Service = "ecs-tasks.amazonaws.com"
+      }
       Action = "sts:AssumeRole"
     }]
   })
@@ -88,9 +97,6 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
 }
 
 ################ ECS TASK DEFINITION ################
-variable "image_tag" {
-  default = "latest"
-}
 
 variable "ecr_repo" {}
 
@@ -100,13 +106,13 @@ resource "aws_ecs_task_definition" "task" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "512"
   memory                   = "1024"
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
+
+  execution_role_arn = aws_iam_role.ecs_execution_role.arn
 
   container_definitions = jsonencode([{
-    name  = "strapi"
-    image = var.ecr_repo
+    name      = "strapi"
+    image     = var.ecr_repo
     essential = true
-
     portMappings = [{
       containerPort = 1337
     }]
@@ -114,6 +120,7 @@ resource "aws_ecs_task_definition" "task" {
 }
 
 ################ ECS SERVICE ################
+
 resource "aws_ecs_service" "service" {
   name            = "strapi-service"
   cluster         = aws_ecs_cluster.cluster.id
