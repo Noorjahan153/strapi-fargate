@@ -40,3 +40,8 @@ jobs:
         cd terraform
         terraform init
         terraform apply -auto-approve -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
+
+    - name: Show Strapi URL
+      run: |
+        cd terraform
+        terraform output strapi_url
