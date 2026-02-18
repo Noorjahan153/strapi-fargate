@@ -28,30 +28,16 @@ resource "aws_subnet" "subnet2" {
   map_public_ip_on_launch = true
 }
 
-resource "aws_route_table" "rt" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.igw.id
-  }
-}
-
-resource "aws_route_table_association" "a1" {
-  subnet_id      = aws_subnet.subnet1.id
-  route_table_id = aws_route_table.rt.id
-}
-
-resource "aws_route_table_association" "a2" {
-  subnet_id      = aws_subnet.subnet2.id
-  route_table_id = aws_route_table.rt.id
-}
-
-################ SECURITY GROUP ################
-
 resource "aws_security_group" "strapi" {
   name   = "strapi-sg"
   vpc_id = aws_vpc.main.id
+
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   ingress {
     from_port   = 1337
@@ -74,7 +60,7 @@ resource "aws_ecs_cluster" "cluster" {
   name = "strapi-cluster"
 }
 
-################ IAM EXECUTION ROLE ################
+################ IAM ROLE ################
 
 resource "aws_iam_role" "ecs_execution_role" {
   name = "ecsTaskExecutionRole"
@@ -96,7 +82,36 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
-################ ECS TASK DEFINITION ################
+################ ALB ################
+
+resource "aws_lb" "alb" {
+  name               = "strapi-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.strapi.id]
+  subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
+}
+
+resource "aws_lb_target_group" "tg" {
+  name     = "strapi-tg"
+  port     = 1337
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+  target_type = "ip"
+}
+
+resource "aws_lb_listener" "listener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port              = 80
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg.arn
+  }
+}
+
+################ ECS TASK ################
 
 variable "ecr_repo" {}
 
@@ -113,8 +128,11 @@ resource "aws_ecs_task_definition" "task" {
     name      = "strapi"
     image     = var.ecr_repo
     essential = true
+
     portMappings = [{
       containerPort = 1337
+      hostPort      = 1337
+      protocol      = "tcp"
     }]
   }])
 }
@@ -134,5 +152,17 @@ resource "aws_ecs_service" "service" {
     assign_public_ip = true
   }
 
-  depends_on = [aws_iam_role_policy_attachment.ecs_execution_policy]
+  load_balancer {
+    target_group_arn = aws_lb_target_group.tg.arn
+    container_name   = "strapi"
+    container_port   = 1337
+  }
+
+  depends_on = [aws_iam_role_policy_attachment.ecs_execution_policy, aws_lb_listener.listener]
+}
+
+################ OUTPUT ################
+
+output "strapi_url" {
+  value = aws_lb.alb.dns_name
 }
