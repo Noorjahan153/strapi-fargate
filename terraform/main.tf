@@ -79,9 +79,7 @@ resource "aws_iam_role" "ecs_execution_role" {
     Version = "2012-10-17"
     Statement = [{
       Effect = "Allow"
-      Principal = {
-        Service = "ecs-tasks.amazonaws.com"
-      }
+      Principal = { Service = "ecs-tasks.amazonaws.com" }
       Action = "sts:AssumeRole"
     }]
   })
@@ -92,6 +90,34 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
 }
 
+################ APPLICATION LOAD BALANCER ################
+resource "aws_lb" "alb" {
+  name               = "strapi-alb"
+  internal           = false
+  load_balancer_type = "application"
+  security_groups    = [aws_security_group.strapi.id]
+  subnets            = [aws_subnet.subnet1.id, aws_subnet.subnet2.id]
+}
+
+resource "aws_lb_target_group" "tg" {
+  name        = "strapi-tg"
+  port        = 1337
+  protocol    = "HTTP"
+  vpc_id      = aws_vpc.main.id
+  target_type = "ip"
+}
+
+resource "aws_lb_listener" "listener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port              = 1337
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.tg.arn
+  }
+}
+
 ################ TASK DEFINITION ################
 resource "aws_ecs_task_definition" "task" {
   family                   = "strapi-task"
@@ -99,17 +125,14 @@ resource "aws_ecs_task_definition" "task" {
   requires_compatibilities = ["FARGATE"]
   cpu                      = "512"
   memory                   = "1024"
-
-  execution_role_arn = aws_iam_role.ecs_execution_role.arn
+  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
 
   container_definitions = jsonencode([{
     name      = "strapi"
     image     = var.ecr_repo
     essential = true
 
-    portMappings = [
-      { containerPort = 1337 }
-    ]
+    portMappings = [{ containerPort = 1337 }]
 
     environment = [
       { name = "APP_KEYS",         value = "key1,key2,key3,key4" },
@@ -133,10 +156,18 @@ resource "aws_ecs_service" "service" {
     security_groups  = [aws_security_group.strapi.id]
     assign_public_ip = true
   }
+
+  load_balancer {
+    target_group_arn = aws_lb_target_group.tg.arn
+    container_name   = "strapi"
+    container_port   = 1337
+  }
+
+  depends_on = [aws_lb_listener.listener]
 }
 
 ################ OUTPUT ################
 output "strapi_public_url" {
-  value       = "http://${aws_ecs_service.service.network_configuration[0].subnets[0]}:1337"
-  description = "Public URL to access Strapi"
+  value       = "http://${aws_lb.alb.dns_name}:1337"
+  description = "Public URL to access Strapi via ALB"
 }
