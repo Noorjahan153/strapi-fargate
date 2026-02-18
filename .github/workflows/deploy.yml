@@ -22,6 +22,20 @@ jobs:
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: ap-south-2
 
+    - name: Login to ECR
+      run: |
+        aws ecr get-login-password --region ap-south-2 | \
+        docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
+
+    - name: Build and Push Image
+      run: |
+        docker build \
+          -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} \
+          -f strapi/Dockerfile \
+          strapi
+
+        docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
+
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v2
 
@@ -31,13 +45,3 @@ jobs:
         terraform init
         terraform apply -auto-approve \
         -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
-
-    - name: Login to ECR
-      run: |
-        aws ecr get-login-password --region ap-south-2 | \
-        docker login --username AWS --password-stdin ${{ secrets.ECR_REPOSITORY }}
-
-    - name: Build and Push Image
-      run: |
-        docker build -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} .
-        docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
