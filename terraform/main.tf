@@ -11,17 +11,12 @@ resource "aws_vpc" "main" {
   enable_dns_support   = true
   enable_dns_hostnames = true
 
-  tags = {
-    Name = "strapi-vpc"
-  }
+  tags = { Name = "strapi-vpc" }
 }
 
 resource "aws_internet_gateway" "igw" {
   vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "strapi-igw"
-  }
+  tags   = { Name = "strapi-igw" }
 }
 
 resource "aws_subnet" "subnet1" {
@@ -30,9 +25,7 @@ resource "aws_subnet" "subnet1" {
   map_public_ip_on_launch = true
   availability_zone       = "ap-south-2a"
 
-  tags = {
-    Name = "strapi-subnet1"
-  }
+  tags = { Name = "strapi-subnet1" }
 }
 
 resource "aws_subnet" "subnet2" {
@@ -41,9 +34,7 @@ resource "aws_subnet" "subnet2" {
   map_public_ip_on_launch = true
   availability_zone       = "ap-south-2b"
 
-  tags = {
-    Name = "strapi-subnet2"
-  }
+  tags = { Name = "strapi-subnet2" }
 }
 
 resource "aws_route_table" "rt" {
@@ -54,9 +45,7 @@ resource "aws_route_table" "rt" {
     gateway_id = aws_internet_gateway.igw.id
   }
 
-  tags = {
-    Name = "strapi-rt"
-  }
+  tags = { Name = "strapi-rt" }
 }
 
 resource "aws_route_table_association" "a1" {
@@ -91,9 +80,7 @@ resource "aws_security_group" "strapi_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "strapi-sg"
-  }
+  tags = { Name = "strapi-sg" }
 }
 
 #######################
@@ -128,6 +115,14 @@ resource "aws_cloudwatch_log_group" "strapi" {
 }
 
 #######################
+# ECR Repository
+#######################
+
+resource "aws_ecr_repository" "strapi" {
+  name = "strapi"
+}
+
+#######################
 # ECS Cluster
 #######################
 
@@ -139,8 +134,6 @@ resource "aws_ecs_cluster" "cluster" {
 # ECS Task Definition
 #######################
 
-variable "aws_account_id" {}
-
 resource "aws_ecs_task_definition" "strapi_task" {
   family                   = "strapi-task"
   network_mode             = "awsvpc"
@@ -151,7 +144,7 @@ resource "aws_ecs_task_definition" "strapi_task" {
 
   container_definitions = jsonencode([{
     name      = "strapi"
-    image     = "${var.aws_account_id}.dkr.ecr.ap-south-2.amazonaws.com/strapi:latest"
+    image     = "${aws_ecr_repository.strapi.repository_url}:latest"
     essential = true
 
     portMappings = [{
