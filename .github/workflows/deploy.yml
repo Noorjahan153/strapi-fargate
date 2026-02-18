@@ -10,18 +10,18 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Checkout code
+      # 1️⃣ Checkout the code
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # 2️⃣ Optional: Debug Docker secrets
-      - name: Debug Docker secrets
+      # 2️⃣ Debug Docker secrets (optional)
+      - name: Check Docker secrets
         run: |
           if [[ -z "${{ secrets.DOCKER_USERNAME }}" ]]; then echo "DOCKER_USERNAME missing"; else echo "DOCKER_USERNAME ok"; fi
           if [[ -z "${{ secrets.DOCKER_TOKEN }}" ]]; then echo "DOCKER_TOKEN missing"; else echo "DOCKER_TOKEN ok"; fi
 
       # 3️⃣ Log in to Docker Hub
-      - name: Log in to Docker Hub
+      - name: Docker login
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
