@@ -1,43 +1,42 @@
-name: Strapi Full CI/CD
+name: Deploy Strapi to ECS
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
-    env:
-      AWS_REGION: ap-south-2
-      IMAGE_TAG: ${{ github.sha }}
-
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Configure AWS
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_TOKEN }}
+
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/strapinew:latest .
+
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.DOCKER_USERNAME }}/strapinew:latest
+
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-2
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-
-      - name: Terraform Apply
+      - name: Deploy ECS Service
         run: |
-          cd terraform
-          terraform init
-          terraform apply -auto-approve \
-          -var="ecr_repo=${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}"
-
-      - name: Login to ECR
-        run: |
-          aws ecr get-login-password --region ap-south-2 | \
-          docker login --username AWS --password-stdin ${{ secrets.ECR_REGISTRY }}
-
-      - name: Build and Push Docker Image
-        run: |
-          docker build -t ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG} strapi/
-          docker push ${{ secrets.ECR_REPOSITORY }}:${IMAGE_TAG}
+          aws ecs update-service \
+            --cluster strapi-cluster-dev \
+            --service strapi-service-dev \
+            --force-new-deployment
