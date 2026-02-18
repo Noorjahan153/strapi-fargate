@@ -46,3 +46,4 @@ jobs:
         cd terraform
         terraform init
         terraform apply -auto-approve -var="ecr_repo=${{ env.ECR_REPOSITORY }}:${IMAGE_TAG}" -var="image_tag=${IMAGE_TAG}"
+
